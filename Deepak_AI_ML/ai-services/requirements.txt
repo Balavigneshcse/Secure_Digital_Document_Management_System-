@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+pytesseract
+pillow
+spacy
+sentence-transformers
+faiss-cpu
+langchain
+python-multipart
