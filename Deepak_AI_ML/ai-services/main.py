@@ -118,8 +118,11 @@ async def ask_chatbot(request: ChatbotRequest):
     """
     Natural language Q&A over authorized documents.
     """
-    # TODO: Implement LangChain + Ollama RAG logic
-    return ChatbotResponse(
-        answer="Based on the documents, the incident occurred on MG Road.",
-        sources=[SourceSnippet(documentId="doc-123", snippet="...incident occurred on MG Road...")]
-    )
+    from chatbot.engine import ChatbotEngine
+    try:
+        engine = ChatbotEngine()
+        result = engine.ask(request.question, request.allowedCaseIds)
+        return ChatbotResponse(**result)
+    except Exception as e:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=500, detail=str(e))
