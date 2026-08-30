@@ -61,12 +61,15 @@ async def extract_text(file: UploadFile = File(...)):
     """
     Extracts text from an uploaded document (PDF/Image) using OCR.
     """
-    # TODO: Implement OCR logic with pytesseract
-    return OcrResponse(
-        text="Sample extracted text...",
-        confidence=0.95,
-        pages=[1]
-    )
+    from ocr.engine import OCREngine
+    try:
+        file_bytes = await file.read()
+        engine = OCREngine()
+        result = engine.extract(file_bytes, file.filename)
+        return OcrResponse(**result)
+    except Exception as e:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/classify", response_model=ClassifyResponse, tags=["Classification Service"])
 async def classify_document(request: ClassifyRequest):
