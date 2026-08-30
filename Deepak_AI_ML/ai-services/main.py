@@ -76,12 +76,14 @@ async def classify_document(request: ClassifyRequest):
     """
     Classifies document type and extracts key entities.
     """
-    # TODO: Implement classification and entity extraction logic
-    return ClassifyResponse(
-        documentType="FIR",
-        confidence=0.89,
-        entities=Entities(names=["John Doe"], dates=["2023-10-27"], caseNumbers=["CR-1234"], locations=["MG Road"])
-    )
+    from classifier.engine import ClassificationEngine
+    try:
+        engine = ClassificationEngine()
+        result = engine.process(request.text)
+        return ClassifyResponse(**result)
+    except Exception as e:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/search/index", tags=["Semantic Search Service"])
 async def index_document(documentId: str, text: str):
