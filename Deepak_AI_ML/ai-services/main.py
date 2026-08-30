@@ -4,6 +4,10 @@ from typing import List, Optional, Dict, Any
 
 app = FastAPI(title="SentinelDMS AI Services API", version="1.0.0")
 
+@app.get("/", tags=["System"])
+async def root():
+    return {"message": "Welcome to SentinelDMS AI Services. Please visit /docs for the API Swagger UI."}
+
 # --- OCR Service Models ---
 class OcrResponse(BaseModel):
     text: str
