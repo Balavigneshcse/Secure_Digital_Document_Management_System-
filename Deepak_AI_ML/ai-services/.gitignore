@@ -1,0 +1,10 @@
+# Python environment
+venv/
+__pycache__/
+*.pyc
+.env
+
+# Large datasets and images
+data/*.zip
+data/*.csv
+data/FIR_Dataset_ICDAR2023/
