@@ -90,20 +90,28 @@ async def index_document(documentId: str, text: str):
     """
     Embeds and stores a document's text in FAISS (called after every upload).
     """
-    # TODO: Implement FAISS indexing
-    return {"status": "success", "message": f"Document {documentId} indexed successfully."}
+    from search.engine import SemanticSearchEngine
+    try:
+        engine = SemanticSearchEngine()
+        engine.index_document(documentId, text)
+        return {"status": "success", "message": f"Document {documentId} indexed successfully."}
+    except Exception as e:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/search/query", response_model=SearchResponse, tags=["Semantic Search Service"])
 async def search_documents(request: SearchRequest):
     """
     Semantic search across documents respecting user access scope.
     """
-    # TODO: Implement semantic search logic
-    return SearchResponse(
-        results=[
-            SearchResultSnippet(documentId="doc-123", score=0.92, snippet="Sample matched snippet from doc-123...")
-        ]
-    )
+    from search.engine import SemanticSearchEngine
+    try:
+        engine = SemanticSearchEngine()
+        results = engine.query(request.query, request.allowedCaseIds)
+        return SearchResponse(results=results)
+    except Exception as e:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/assistant/ask", response_model=ChatbotResponse, tags=["RAG Chatbot Service"])
 async def ask_chatbot(request: ChatbotRequest):
