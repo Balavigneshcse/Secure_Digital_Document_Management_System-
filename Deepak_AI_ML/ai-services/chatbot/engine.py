@@ -1,17 +1,15 @@
+import requests
 from typing import List, Dict, Any
 from search.engine import SemanticSearchEngine
 
-OLLAMA_AVAILABLE = False
 
-try:
-    from langchain_community.llms import Ollama
-    import requests as _req
-    # Quick connectivity check — Ollama runs on port 11434
-    _resp = _req.get("http://localhost:11434", timeout=2)
-    OLLAMA_AVAILABLE = True
-    print("[Chatbot] Ollama is running — full RAG mode enabled.")
-except Exception:
-    print("[Chatbot] Ollama not found — running in context-retrieval fallback mode.")
+def _is_ollama_running() -> bool:
+    """Check if Ollama server is reachable on port 11434."""
+    try:
+        r = requests.get("http://localhost:11434", timeout=3)
+        return True
+    except Exception:
+        return False
 
 
 class ChatbotEngine:
@@ -19,20 +17,24 @@ class ChatbotEngine:
     RAG Chatbot using LangChain + local Ollama LLM.
 
     Modes:
-      - Full RAG (Ollama running): Retrieves docs via FAISS, sends prompt to Llama3
-      - Fallback (Ollama absent): Returns top matching document snippets as the answer
-        with a clear note. This keeps the service live during demo/dev without Ollama.
+      - Full RAG (Ollama running): Retrieves docs from FAISS, sends prompt to Llama3
+      - Fallback (Ollama absent):  Returns top matching doc snippets with install instructions
     """
 
     def __init__(self, model_name="llama3"):
         self.search_engine = SemanticSearchEngine()
         self.llm = None
-        if OLLAMA_AVAILABLE:
+
+        # Check Ollama on every instantiation (no stale module-level cache)
+        if _is_ollama_running():
             try:
                 from langchain_community.llms import Ollama
                 self.llm = Ollama(model=model_name)
+                print("[Chatbot] Ollama detected — full RAG mode enabled.")
             except Exception as e:
-                print(f"[Chatbot] Ollama init failed: {e}")
+                print(f"[Chatbot] Ollama init error: {e}")
+        else:
+            print("[Chatbot] Ollama not reachable — running in context-retrieval fallback mode.")
 
     def ask(self, question: str, allowed_case_ids: List[str]) -> Dict[str, Any]:
         # 1. Retrieve relevant documents via Semantic Search
@@ -52,11 +54,11 @@ class ChatbotEngine:
                 "sources": []
             }
 
-        # 2. If Ollama is available, use full RAG
+        # 2. Full RAG with Ollama/Llama3
         if self.llm:
-            prompt = f"""You are SentinelDMS, an AI assistant for investigating officers.
+            prompt = f"""You are SentinelDMS, an AI assistant for investigating officers and legal professionals.
 Answer the question strictly based on the context documents below.
-If the answer is not in the context, say "I cannot find this in the authorized documents."
+Do not make up information. If the answer is not in the context, say "I cannot find this in the authorized documents."
 
 Context:
 {context_str}
@@ -67,7 +69,6 @@ Answer:"""
                 answer = self.llm.invoke(prompt).strip()
                 return {"answer": answer, "sources": sources}
             except Exception as e:
-                # Ollama crashed mid-run — fall through to fallback
                 print(f"[Chatbot] Ollama invoke failed: {e}")
 
         # 3. Fallback — return retrieved context directly
@@ -78,4 +79,3 @@ Answer:"""
             f"and run: ollama pull llama3"
         )
         return {"answer": fallback_answer, "sources": sources}
-
