@@ -23,6 +23,7 @@ class Entities(BaseModel):
     dates: List[str]
     caseNumbers: List[str]
     locations: List[str]
+    ipcSections: Optional[List[str]] = []
 
 class ClassifyResponse(BaseModel):
     documentType: str # e.g. "FIR", "chargesheet", "witness_statement", "forensic_report", "court_filing", "other"

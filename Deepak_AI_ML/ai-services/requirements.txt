@@ -6,5 +6,9 @@ spacy
 sentence-transformers
 faiss-cpu
 langchain
+langchain-community
 python-multipart
+pymupdf
+transformers
+torch
 pymupdf
