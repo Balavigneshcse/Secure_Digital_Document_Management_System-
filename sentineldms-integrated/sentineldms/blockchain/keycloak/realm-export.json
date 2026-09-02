@@ -1,0 +1,104 @@
+{
+  "realm": "sentineldms",
+  "enabled": true,
+  "displayName": "SentinelDMS",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "roles": {
+    "realm": [
+      { "name": "investigating_officer", "description": "Field officer; access limited to cases within their own department" },
+      { "name": "judicial_officer", "description": "Court-side role; MFA required" },
+      { "name": "forensic_expert", "description": "Forensic lab role; MFA required" },
+      { "name": "admin", "description": "Full administrative access; MFA required" },
+      { "name": "auditor", "description": "Read-only access across all departments; MFA required" }
+    ]
+  },
+  "requiredActions": [
+    {
+      "alias": "CONFIGURE_TOTP",
+      "name": "Configure OTP",
+      "providerId": "CONFIGURE_TOTP",
+      "enabled": true,
+      "defaultAction": false,
+      "priority": 10
+    }
+  ],
+  "clients": [
+    {
+      "clientId": "sentineldms-backend",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "redirectUris": ["*"],
+      "webOrigins": ["*"]
+    }
+  ],
+  "users": [
+    {
+      "username": "rajesh.kumar@ncrb.gov.in",
+      "email": "rajesh.kumar@ncrb.gov.in",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Rajesh",
+      "lastName": "Kumar",
+      "credentials": [{ "type": "password", "value": "Password123!", "temporary": false }],
+      "realmRoles": ["admin"]
+    },
+    {
+      "username": "priya.sharma@ncrb.gov.in",
+      "email": "priya.sharma@ncrb.gov.in",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Priya",
+      "lastName": "Sharma",
+      "credentials": [{ "type": "password", "value": "Password123!", "temporary": false }],
+      "realmRoles": ["investigating_officer"]
+    },
+    {
+      "username": "meena.iyer@forensics.gov.in",
+      "email": "meena.iyer@forensics.gov.in",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Meena",
+      "lastName": "Iyer",
+      "credentials": [{ "type": "password", "value": "Password123!", "temporary": false }],
+      "realmRoles": ["forensic_expert"]
+    },
+    {
+      "username": "ramkumar@judiciary.gov.in",
+      "email": "ramkumar@judiciary.gov.in",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Justice",
+      "lastName": "Ramkumar",
+      "credentials": [{ "type": "password", "value": "Password123!", "temporary": false }],
+      "realmRoles": ["judicial_officer"]
+    },
+    {
+      "username": "observer@judiciary.gov.in",
+      "email": "observer@judiciary.gov.in",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Court",
+      "lastName": "Observer",
+      "credentials": [{ "type": "password", "value": "Password123!", "temporary": false }],
+      "realmRoles": ["auditor"]
+    }
+  ],
+  "_comment_ABAC": [
+    "ABAC-style policies (IOs restricted to their own department's cases;",
+    "auditors read-only everywhere) are configured under the client's",
+    "Authorization Services tab (Resources / Policies / Permissions) once",
+    "the client and department attribute mapper exist — that part isn't",
+    "expressible in this static realm-export skeleton and must be done",
+    "through the Admin Console, then re-exported to update this file."
+  ],
+  "_comment_MFA": [
+    "This skeleton enables the CONFIGURE_TOTP required action realm-wide.",
+    "To restrict it to roles above investigating_officer specifically,",
+    "bind CONFIGURE_TOTP as a required action per-user or via a",
+    "conditional flow in Authentication > Flows, then re-export."
+  ]
+}

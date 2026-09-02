@@ -1,0 +1,16 @@
+{
+  "name": "document-anchor-chaincode",
+  "version": "1.0.0",
+  "description": "SentinelDMS Hyperledger Fabric chaincode: anchors document hashes and serves as the tamper-evidence ledger.",
+  "main": "index.js",
+  "scripts": {
+    "start": "fabric-chaincode-node start"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "fabric-contract-api": "^2.5.4",
+    "fabric-shim": "^2.5.4"
+  }
+}

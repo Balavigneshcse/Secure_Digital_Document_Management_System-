@@ -1,0 +1,433 @@
+// SentinelDMS — Prisma Schema
+//
+// This mirrors Arunkumar's real schema at
+// Arunkumar_Database/sentineldms-db/migrations/001_initial_schema.sql
+// EXACTLY (table names, column names, enum values) via @map/@@map.
+//
+// IMPORTANT: this file does NOT drive migrations. Arunkumar's raw SQL is the
+// source of truth (it includes views, triggers, and functions Prisma's
+// migration engine can't express). Apply his SQL directly (see root README),
+// then run `npx prisma generate` only — never `prisma migrate dev` against
+// this schema, it would fight his hand-written migration.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// ENUMS — values match Arunkumar's Postgres enums exactly
+// ============================================================
+
+enum UserStatus {
+  active
+  inactive
+  suspended
+
+  @@map("user_status")
+}
+
+enum CaseStatus {
+  open
+  under_investigation
+  pending_review
+  closed
+  archived
+  reopened
+
+  @@map("case_status")
+}
+
+enum DocumentType {
+  fir
+  chargesheet
+  witness_statement
+  forensic_report
+  court_order
+  arrest_memo
+  evidence_photo
+  medical_report
+  legal_notice
+  affidavit
+  other
+
+  @@map("document_type")
+}
+
+enum SignatureStatus {
+  unsigned
+  pending
+  signed
+  rejected
+  expired
+
+  @@map("signature_status")
+}
+
+enum CustodyAction {
+  created
+  viewed
+  downloaded
+  transferred
+  edited
+  signed
+  archived
+  restored
+  deleted
+
+  @@map("custody_action")
+}
+
+enum NotificationType {
+  document_uploaded
+  document_signed
+  case_updated
+  access_granted
+  access_revoked
+  tamper_detected
+  signature_requested
+  workflow_approved
+  workflow_rejected
+  system_alert
+
+  @@map("notification_type")
+}
+
+enum WorkflowStatus {
+  pending
+  in_review
+  approved
+  rejected
+  escalated
+
+  @@map("workflow_status")
+}
+
+enum SharingStatus {
+  active
+  expired
+  revoked
+
+  @@map("sharing_status")
+}
+
+// ============================================================
+// MODELS
+// ============================================================
+
+model Role {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @unique
+  description String?
+  permissions Json     @default("[]")
+  isSystem    Boolean  @default(false) @map("is_system")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  users User[]
+
+  @@map("roles")
+}
+
+model User {
+  id                String    @id @default(uuid()) @db.Uuid
+  name              String
+  email             String    @unique
+  badgeNumber       String?   @unique @map("badge_number")
+  roleId            String    @map("role_id") @db.Uuid
+  role              Role      @relation(fields: [roleId], references: [id])
+  department        String?
+  designation       String?
+  stationCode       String?   @map("station_code")
+  keycloakId        String?   @unique @map("keycloak_id")
+  mfaEnabled        Boolean   @default(false) @map("mfa_enabled")
+  status            UserStatus @default(active)
+  lastLoginAt       DateTime? @map("last_login_at")
+  passwordChangedAt DateTime? @map("password_changed_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  casesCreated       Case[]             @relation("CaseCreatedBy")
+  casesAssigned      Case[]             @relation("CaseAssignedTo")
+  documentsUploaded  Document[]         @relation("DocumentUploadedBy")
+  documentVersions   DocumentVersion[]  @relation("VersionCreatedBy")
+  signatures         DigitalSignature[] @relation("SignedBy")
+  custodyHandled     ChainOfCustody[]   @relation("CustodyHandler")
+  auditLogs          AuditLog[]
+  notifications      Notification[]
+  workflowsInitiated Workflow[]         @relation("WorkflowInitiatedBy")
+  workflowsAssigned  Workflow[]         @relation("WorkflowAssignedTo")
+  tamperChecks       TamperCheck[]      @relation("TamperCheckedBy")
+
+  @@map("users")
+}
+
+model Case {
+  id           String     @id @default(uuid()) @db.Uuid
+  caseNumber   String     @unique @map("case_number")
+  title        String
+  description  String?
+  status       CaseStatus @default(open)
+  department   String?
+  stationCode  String?    @map("station_code")
+  jurisdiction String?
+  filedDate    DateTime?  @map("filed_date") @db.Date
+  createdById  String     @map("created_by") @db.Uuid
+  createdBy    User       @relation("CaseCreatedBy", fields: [createdById], references: [id])
+  assignedToId String?    @map("assigned_to") @db.Uuid
+  assignedTo   User?      @relation("CaseAssignedTo", fields: [assignedToId], references: [id])
+  closedAt     DateTime?  @map("closed_at")
+  archivedAt   DateTime?  @map("archived_at")
+  metadata     Json?      @default("{}")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  documents Document[]
+  workflows Workflow[]
+
+  @@map("cases")
+}
+
+model Document {
+  id                String          @id @default(uuid()) @db.Uuid
+  caseId            String          @map("case_id") @db.Uuid
+  case              Case            @relation(fields: [caseId], references: [id])
+  title             String
+  documentType      DocumentType    @default(other) @map("document_type")
+  currentVersionId  String?         @unique @map("current_version_id") @db.Uuid
+  uploadedById      String          @map("uploaded_by") @db.Uuid
+  uploadedBy        User            @relation("DocumentUploadedBy", fields: [uploadedById], references: [id])
+  signatureStatus   SignatureStatus @default(unsigned) @map("signature_status")
+  isConfidential    Boolean         @default(false) @map("is_confidential")
+  language          String?         @default("en")
+  ocrProcessed      Boolean         @default(false) @map("ocr_processed")
+  aiClassified      Boolean         @default(false) @map("ai_classified")
+  isArchived        Boolean         @default(false) @map("is_archived")
+  archivedAt        DateTime?       @map("archived_at")
+  tags              String[]        @default([])
+  metadata          Json?           @default("{}")
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
+
+  // versions relation uses the FK on DocumentVersion.documentId (not currentVersionId)
+  versions          DocumentVersion[] @relation("DocumentToVersions")
+  currentVersion    DocumentVersion?  @relation("CurrentVersion", fields: [currentVersionId], references: [id])
+  chainOfCustody    ChainOfCustody[]
+  workflows         Workflow[]
+  shares            DocumentShare[]
+  aiClassifications AiClassification[]
+
+  @@map("documents")
+}
+
+model DocumentVersion {
+  id               String   @id @default(uuid()) @db.Uuid
+  documentId       String   @map("document_id") @db.Uuid
+  document         Document @relation("DocumentToVersions", fields: [documentId], references: [id])
+  versionNumber    Int      @map("version_number")
+  filePath         String   @map("file_path")
+  fileHash         String   @map("file_hash") @db.Char(64)
+  fileSize         BigInt   @map("file_size")
+  mimeType         String?  @map("mime_type")
+  originalFilename String?  @map("original_filename")
+  encryptionKeyId  String?  @map("encryption_key_id")
+  createdById      String   @map("created_by") @db.Uuid
+  createdBy        User     @relation("VersionCreatedBy", fields: [createdById], references: [id])
+  changeNotes      String?  @map("change_notes")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  documentAsCurrent Document?         @relation("CurrentVersion")
+  signatures        DigitalSignature[]
+  blockchainAnchors BlockchainAnchor[]
+  ocrResult         OcrResult?
+  aiClassifications AiClassification[]
+  tamperChecks      TamperCheck[]
+
+  @@unique([documentId, versionNumber])
+  @@map("document_versions")
+}
+
+model DigitalSignature {
+  id                  String    @id @default(uuid()) @db.Uuid
+  documentVersionId   String    @map("document_version_id") @db.Uuid
+  documentVersion     DocumentVersion @relation(fields: [documentVersionId], references: [id])
+  signedById          String    @map("signed_by") @db.Uuid
+  signedBy            User      @relation("SignedBy", fields: [signedById], references: [id])
+  certificateId       String    @map("certificate_id")
+  certificateSubject  String?   @map("certificate_subject")
+  signatureValue      String    @map("signature_value")
+  signingAlgorithm    String?   @default("SHA256withRSA") @map("signing_algorithm")
+  isValid             Boolean   @default(true) @map("is_valid")
+  invalidatedAt       DateTime? @map("invalidated_at")
+  invalidationReason  String?   @map("invalidation_reason")
+  signedAt            DateTime  @default(now()) @map("signed_at")
+
+  @@map("digital_signatures")
+}
+
+model BlockchainAnchor {
+  id                String          @id @default(uuid()) @db.Uuid
+  documentVersionId String          @map("document_version_id") @db.Uuid
+  documentVersion   DocumentVersion @relation(fields: [documentVersionId], references: [id])
+  txId              String          @unique @map("tx_id")
+  blockNumber       BigInt?         @map("block_number")
+  channelName       String?         @default("sentinel-channel") @map("channel_name")
+  chaincodeName     String?         @default("sentinel-cc") @map("chaincode_name")
+  anchoredHash      String          @map("anchored_hash") @db.Char(64)
+  anchorPayload     Json?           @map("anchor_payload")
+  anchorStatus      String?         @default("confirmed") @map("anchor_status")
+  anchoredAt        DateTime        @default(now()) @map("anchored_at")
+
+  tamperChecks TamperCheck[]
+
+  @@map("blockchain_anchors")
+}
+
+model ChainOfCustody {
+  id         String        @id @default(uuid()) @db.Uuid
+  documentId String        @map("document_id") @db.Uuid
+  document   Document      @relation(fields: [documentId], references: [id])
+  handlerId  String        @map("handler_id") @db.Uuid
+  handler    User          @relation("CustodyHandler", fields: [handlerId], references: [id])
+  action     CustodyAction
+  fromUserId String?       @map("from_user_id") @db.Uuid
+  toUserId   String?       @map("to_user_id") @db.Uuid
+  location   String?
+  deviceInfo String?       @map("device_info")
+  ipAddress  String?       @map("ip_address") @db.Inet
+  notes      String?
+  timestamp  DateTime      @default(now())
+
+  @@map("chain_of_custody")
+}
+
+model AuditLog {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String?  @map("user_id") @db.Uuid
+  user         User?    @relation(fields: [userId], references: [id])
+  sessionId    String?  @map("session_id")
+  action       String
+  resourceType String?  @map("resource_type")
+  resourceId   String?  @map("resource_id") @db.Uuid
+  oldValue     Json?    @map("old_value")
+  newValue     Json?    @map("new_value")
+  ipAddress    String?  @map("ip_address") @db.Inet
+  userAgent    String?  @map("user_agent")
+  success      Boolean  @default(true)
+  errorMessage String?  @map("error_message")
+  timestamp    DateTime @default(now())
+
+  @@map("audit_logs")
+}
+
+model Notification {
+  id                  String           @id @default(uuid()) @db.Uuid
+  userId              String           @map("user_id") @db.Uuid
+  user                User             @relation(fields: [userId], references: [id])
+  type                NotificationType
+  title                String
+  message             String
+  relatedResourceType String?          @map("related_resource_type")
+  relatedResourceId   String?          @map("related_resource_id") @db.Uuid
+  isRead              Boolean          @default(false) @map("is_read")
+  readAt              DateTime?        @map("read_at")
+  createdAt           DateTime         @default(now()) @map("created_at")
+
+  @@map("notifications")
+}
+
+model Workflow {
+  id             String         @id @default(uuid()) @db.Uuid
+  caseId         String?        @map("case_id") @db.Uuid
+  case           Case?          @relation(fields: [caseId], references: [id])
+  documentId     String?        @map("document_id") @db.Uuid
+  document       Document?      @relation(fields: [documentId], references: [id])
+  initiatedById  String         @map("initiated_by") @db.Uuid
+  initiatedBy    User           @relation("WorkflowInitiatedBy", fields: [initiatedById], references: [id])
+  assignedToId   String         @map("assigned_to") @db.Uuid
+  assignedTo     User           @relation("WorkflowAssignedTo", fields: [assignedToId], references: [id])
+  status         WorkflowStatus @default(pending)
+  workflowType   String         @map("workflow_type")
+  priority       Int?           @default(2) @db.SmallInt
+  dueDate        DateTime?      @map("due_date")
+  notes          String?
+  resolvedAt     DateTime?      @map("resolved_at")
+  resolutionNote String?        @map("resolution_note")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+
+  @@map("workflows")
+}
+
+model DocumentShare {
+  id          String        @id @default(uuid()) @db.Uuid
+  documentId  String        @map("document_id") @db.Uuid
+  document    Document      @relation(fields: [documentId], references: [id])
+  sharedById  String        @map("shared_by") @db.Uuid
+  sharedWithId String       @map("shared_with") @db.Uuid
+  shareToken  String?       @unique @map("share_token")
+  permissions String[]      @default(["read"])
+  expiresAt   DateTime?     @map("expires_at")
+  status      SharingStatus @default(active)
+  revokedAt   DateTime?     @map("revoked_at")
+  revokedById String?       @map("revoked_by") @db.Uuid
+  createdAt   DateTime      @default(now()) @map("created_at")
+
+  @@map("document_shares")
+}
+
+model OcrResult {
+  id                    String          @id @default(uuid()) @db.Uuid
+  documentVersionId     String          @unique @map("document_version_id") @db.Uuid
+  documentVersion       DocumentVersion @relation(fields: [documentVersionId], references: [id])
+  extractedText         String?         @map("extracted_text")
+  languageDetected      String?         @map("language_detected")
+  confidenceScore       Decimal?        @map("confidence_score") @db.Decimal(5, 4)
+  processingEngine      String?         @default("tesseract") @map("processing_engine")
+  processingDurationMs  Int?            @map("processing_duration_ms")
+  errorMessage          String?         @map("error_message")
+  processedAt           DateTime        @default(now()) @map("processed_at")
+
+  @@map("ocr_results")
+}
+
+model AiClassification {
+  id                 String          @id @default(uuid()) @db.Uuid
+  documentId         String          @map("document_id") @db.Uuid
+  document           Document        @relation(fields: [documentId], references: [id])
+  documentVersionId  String          @map("document_version_id") @db.Uuid
+  documentVersion    DocumentVersion @relation(fields: [documentVersionId], references: [id])
+  predictedType      DocumentType?   @map("predicted_type")
+  confidenceScore    Decimal?        @map("confidence_score") @db.Decimal(5, 4)
+  extractedEntities  Json?           @default("{}") @map("extracted_entities")
+  tagsSuggested      String[]        @default([]) @map("tags_suggested")
+  modelName          String?         @map("model_name")
+  modelVersion       String?         @map("model_version")
+  isAccepted         Boolean?        @map("is_accepted")
+  reviewedById       String?         @map("reviewed_by") @db.Uuid
+  reviewedAt         DateTime?       @map("reviewed_at")
+  processedAt        DateTime        @default(now()) @map("processed_at")
+
+  @@map("ai_classifications")
+}
+
+model TamperCheck {
+  id                 String            @id @default(uuid()) @db.Uuid
+  documentVersionId  String            @map("document_version_id") @db.Uuid
+  documentVersion    DocumentVersion   @relation(fields: [documentVersionId], references: [id])
+  blockchainAnchorId String?           @map("blockchain_anchor_id") @db.Uuid
+  blockchainAnchor   BlockchainAnchor? @relation(fields: [blockchainAnchorId], references: [id])
+  checkedById        String?           @map("checked_by") @db.Uuid
+  checkedBy          User?             @relation("TamperCheckedBy", fields: [checkedById], references: [id])
+  currentHash        String            @map("current_hash") @db.Char(64)
+  anchoredHash       String            @map("anchored_hash") @db.Char(64)
+  isTampered         Boolean           @map("is_tampered")
+  checkNotes         String?           @map("check_notes")
+  checkedAt          DateTime          @default(now()) @map("checked_at")
+
+  @@map("tamper_checks")
+}

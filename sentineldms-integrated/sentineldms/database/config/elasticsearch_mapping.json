@@ -1,0 +1,123 @@
+{
+  "comment": "SentinelDMS — Elasticsearch Index Mapping",
+  "info": "Share this file with Deepak (AI/ML). Agree on who writes to this index: Deepak's OCR/classify pipeline pushes the payload, Arunkumar's DB does NOT duplicate the write.",
+
+  "index": "sentineldms_documents",
+
+  "settings": {
+    "number_of_shards": 2,
+    "number_of_replicas": 1,
+    "analysis": {
+      "analyzer": {
+        "legal_text_analyzer": {
+          "type": "custom",
+          "tokenizer": "standard",
+          "filter": ["lowercase", "stop", "stemmer_en"]
+        },
+        "hindi_analyzer": {
+          "type": "custom",
+          "tokenizer": "standard",
+          "filter": ["lowercase", "indic_normalization", "hindi_stop"]
+        }
+      },
+      "filter": {
+        "stemmer_en": {
+          "type": "stemmer",
+          "language": "english"
+        },
+        "hindi_stop": {
+          "type": "stop",
+          "stopwords": "_hindi_"
+        }
+      }
+    }
+  },
+
+  "mappings": {
+    "properties": {
+      "document_id":     { "type": "keyword" },
+      "document_version_id": { "type": "keyword" },
+      "case_id":         { "type": "keyword" },
+      "case_number":     { "type": "keyword" },
+
+      "title": {
+        "type": "text",
+        "analyzer": "legal_text_analyzer",
+        "fields": { "keyword": { "type": "keyword" } }
+      },
+
+      "document_type":   { "type": "keyword" },
+      "language":        { "type": "keyword" },
+
+      "uploaded_by_id":    { "type": "keyword" },
+      "uploaded_by_name":  { "type": "keyword" },
+      "department":        { "type": "keyword" },
+
+      "extracted_text": {
+        "type": "text",
+        "analyzer": "legal_text_analyzer",
+        "fields": {
+          "hi": {
+            "type": "text",
+            "analyzer": "hindi_analyzer"
+          }
+        }
+      },
+
+      "entities": {
+        "type": "object",
+        "properties": {
+          "names":        { "type": "keyword" },
+          "dates":        { "type": "date", "format": "yyyy-MM-dd||dd/MM/yyyy" },
+          "case_numbers": { "type": "keyword" },
+          "locations":    { "type": "keyword" },
+          "sections":     { "type": "keyword" },
+          "amounts":      { "type": "keyword" }
+        }
+      },
+
+      "tags":            { "type": "keyword" },
+
+      "signature_status": { "type": "keyword" },
+      "is_confidential":  { "type": "boolean" },
+      "is_archived":      { "type": "boolean" },
+      "ocr_processed":    { "type": "boolean" },
+
+      "file_hash":        { "type": "keyword" },
+      "blockchain_tx_id": { "type": "keyword" },
+      "is_tampered":      { "type": "boolean" },
+
+      "created_at":       { "type": "date" },
+      "version_created_at": { "type": "date" }
+    }
+  },
+
+  "example_document": {
+    "document_id":         "d1000000-0000-0000-0000-000000000001",
+    "document_version_id": "e1000000-0000-0000-0000-000000000001",
+    "case_id":             "c1000000-0000-0000-0000-000000000001",
+    "case_number":         "CR-2026-WSD-00123",
+    "title":               "First Information Report — CR-2026-WSD-00123",
+    "document_type":       "fir",
+    "language":            "hi",
+    "uploaded_by_id":      "b1000000-0000-0000-0000-000000000002",
+    "uploaded_by_name":    "Priya Sharma",
+    "department":          "Women Safety Division",
+    "extracted_text":      "FIR No: CR-2026-WSD-00123 ... Complainant: Sunita Rao ...",
+    "entities": {
+      "names":        ["Sunita Rao", "Rahul Verma"],
+      "dates":        ["2026-02-10"],
+      "case_numbers": ["CR-2026-WSD-00123"],
+      "sections":     ["IT Act Section 67", "IPC 354D"]
+    },
+    "tags":             ["fir", "online-harassment", "women-safety"],
+    "signature_status": "signed",
+    "is_confidential":  false,
+    "is_archived":      false,
+    "ocr_processed":    true,
+    "file_hash":        "a3f4e5d6c7b8a901...",
+    "blockchain_tx_id": "TX-FABRIC-A3F4E5D6...",
+    "is_tampered":      false,
+    "created_at":       "2026-02-10T00:00:00Z"
+  }
+}

@@ -1,0 +1,133 @@
+version: "3.9"
+
+# SentinelDMS — Data Layer Services
+# Coordinate with Balavignesh before adding services — avoid duplicates.
+# Run: docker compose up -d
+# To apply schema: docker compose exec postgres psql -U sentinel -d sentineldms -f /migrations/001_initial_schema.sql
+
+services:
+
+  # ──────────────────────────────────────────────
+  # PostgreSQL 15
+  # ──────────────────────────────────────────────
+  postgres:
+    image: postgres:15-alpine
+    container_name: sentineldms_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: sentinel
+      POSTGRES_PASSWORD: sentinel_secret_change_in_prod
+      POSTGRES_DB: sentineldms
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations:/migrations:ro
+      - ./seeds:/seeds:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sentinel -d sentineldms"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ──────────────────────────────────────────────
+  # Redis 7
+  # ──────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: sentineldms_redis
+    restart: unless-stopped
+    command: redis-server --requirepass redis_secret_change_in_prod --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "redis_secret_change_in_prod", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ──────────────────────────────────────────────
+  # MinIO (S3-compatible object storage)
+  # ──────────────────────────────────────────────
+  minio:
+    image: minio/minio:latest
+    container_name: sentineldms_minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: sentinel_minio
+      MINIO_ROOT_PASSWORD: minio_secret_change_in_prod
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # Web console
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # ──────────────────────────────────────────────
+  # MinIO bucket initializer (runs once, creates bucket + enables versioning)
+  # ──────────────────────────────────────────────
+  minio_init:
+    image: minio/mc:latest
+    container_name: sentineldms_minio_init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+        mc alias set local http://minio:9000 sentinel_minio minio_secret_change_in_prod &&
+        mc mb --ignore-existing local/sentineldms &&
+        mc version enable local/sentineldms &&
+        mc anonymous set none local/sentineldms &&
+        echo 'MinIO bucket ready.'
+      "
+    restart: "no"
+
+  # ──────────────────────────────────────────────
+  # Elasticsearch 8
+  # ──────────────────────────────────────────────
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
+    container_name: sentineldms_elasticsearch
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false        # disable for dev; enable in production
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+      - ELASTIC_PASSWORD=elastic_secret_change_in_prod
+    ports:
+      - "9200:9200"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 20s
+      timeout: 10s
+      retries: 10
+
+  # ──────────────────────────────────────────────
+  # Kibana (optional — useful for Deepak to inspect ES index during dev)
+  # ──────────────────────────────────────────────
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.13.4
+    container_name: sentineldms_kibana
+    restart: unless-stopped
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    ports:
+      - "5601:5601"
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+  es_data:

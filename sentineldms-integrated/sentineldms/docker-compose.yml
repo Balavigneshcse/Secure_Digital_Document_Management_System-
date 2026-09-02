@@ -1,0 +1,134 @@
+version: "3.9"
+
+# SentinelDMS — merged local dev stack (Postgres/Redis/MinIO/Elasticsearch
+# from Arunkumar's database/docker-compose.yml, Keycloak realm from
+# Dharani's blockchain/keycloak/realm-export.json).
+#
+# NOT included here: blockchain-api / Hyperledger Fabric. That requires
+# cloning fabric-samples and a multi-step manual setup — see
+# blockchain/README.md. Everything in this compose file is enough to run
+# the full app end-to-end with the blockchain service's built-in mock
+# fallback; add real Fabric anchoring separately when you're ready for it.
+#
+# Run: docker compose up -d
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: sentineldms_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: sentinel
+      POSTGRES_PASSWORD: sentinel_secret_change_in_prod
+      POSTGRES_DB: sentineldms
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/migrations:/migrations:ro
+      - ./database/seeds:/seeds:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sentinel -d sentineldms"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: sentineldms_redis
+    restart: unless-stopped
+    command: redis-server --requirepass redis_secret_change_in_prod --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "redis_secret_change_in_prod", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    container_name: sentineldms_minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: sentinel_minio
+      MINIO_ROOT_PASSWORD: minio_secret_change_in_prod
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  minio_init:
+    image: minio/mc:latest
+    container_name: sentineldms_minio_init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+        mc alias set local http://minio:9000 sentinel_minio minio_secret_change_in_prod &&
+        mc mb --ignore-existing local/sentineldms &&
+        mc version enable local/sentineldms &&
+        mc anonymous set none local/sentineldms &&
+        echo 'MinIO bucket ready.'
+      "
+    restart: "no"
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
+    container_name: sentineldms_elasticsearch
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+      - ELASTIC_PASSWORD=elastic_secret_change_in_prod
+    ports:
+      - "9200:9200"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 20s
+      timeout: 10s
+      retries: 10
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.13.4
+    container_name: sentineldms_kibana
+    restart: unless-stopped
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    ports:
+      - "5601:5601"
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    container_name: sentineldms_keycloak
+    restart: unless-stopped
+    command: start-dev --import-realm
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin_dev_pw
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+  es_data:
