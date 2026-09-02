@@ -12,3 +12,4 @@ pymupdf
 transformers
 torch
 pymupdf
+pandas
