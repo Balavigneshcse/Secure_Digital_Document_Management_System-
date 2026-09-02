@@ -130,7 +130,7 @@ services:
   # ── Deepak's AI Services (OCR + Classification + Semantic Search + RAG Chatbot)
   ai-service:
     build:
-      context: ../../../Deepak_AI_ML/ai-services
+      context: ./ai-service
       dockerfile: Dockerfile
     container_name: sentineldms_ai
     restart: unless-stopped
