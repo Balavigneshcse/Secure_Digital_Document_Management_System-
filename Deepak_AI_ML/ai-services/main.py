@@ -20,6 +20,74 @@ async def health():
     stats = engine.get_stats()
     return {"status": "ok", "indexStats": stats}
 
+# NestJS backend compatibility endpoint — matches Balavignesh's ai-client.service.ts contract
+class OcrClassifyRequest(BaseModel):
+    fileName: str
+    mimeType: str
+    fileBase64: str  # Base64-encoded file content from NestJS
+
+class OcrClassifyResponse(BaseModel):
+    ocrText: str
+    docType: str   # FIR | CHARGESHEET | WITNESS_STATEMENT | FORENSIC_REPORT | COURT_FILING | OTHER
+    entities: Dict[str, Any]
+    confidence: float
+
+@app.post("/ocr-classify", response_model=OcrClassifyResponse, tags=["System"])
+async def ocr_classify(request: OcrClassifyRequest):
+    """
+    Combined OCR + Classification endpoint.
+    Called by Balavignesh's NestJS backend (ai-client.service.ts) after every document upload.
+    Accepts base64-encoded file, returns docType + entities matching the NestJS contract.
+    """
+    import base64
+    from ocr.engine import OCREngine
+    from classifier.engine import ClassificationEngine
+    from search.engine import SemanticSearchEngine
+    import uuid
+
+    try:
+        # Decode base64 file from NestJS
+        file_bytes = base64.b64decode(request.fileBase64)
+
+        # Step 1: OCR
+        ocr_result = OCREngine().extract(file_bytes, request.fileName)
+        text = ocr_result["text"]
+
+        # Step 2: Classify
+        classify_result = ClassificationEngine().process(text)
+        doc_type = classify_result["documentType"]
+        entities = classify_result["entities"]
+
+        # Step 3: Auto-index into FAISS (fire and don't block the response)
+        try:
+            SemanticSearchEngine().index_document(
+                document_id=str(uuid.uuid4()),
+                text=text,
+                case_id="public",
+                document_type=doc_type,
+            )
+        except Exception:
+            pass  # Indexing failure should never block the upload response
+
+        # Map to NestJS expected format
+        doc_type_map = {
+            "FIR": "FIR",
+            "chargesheet": "CHARGESHEET",
+            "witness_statement": "WITNESS_STATEMENT",
+            "forensic_report": "FORENSIC_REPORT",
+            "court_filing": "COURT_FILING",
+            "other": "OTHER",
+        }
+
+        return OcrClassifyResponse(
+            ocrText=text,
+            docType=doc_type_map.get(doc_type, "OTHER"),
+            entities=entities,
+            confidence=classify_result["confidence"],
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Models
 # ─────────────────────────────────────────────────────────────────────────────
