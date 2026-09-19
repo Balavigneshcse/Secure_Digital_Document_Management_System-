@@ -22,7 +22,7 @@ class SummarizeRequest(BaseModel):
 async def semantic_search(
     search_req: SearchQuery,
     current_user: User = Depends(get_current_user),
-    _: bool = Depends(RoleChecker(RoleEnum.INVESTIGATOR))
+    _: bool = Depends(RoleChecker(RoleEnum.IO))
 ):
     try:
         results = await AIService.semantic_search(
@@ -39,7 +39,7 @@ async def semantic_search(
 async def summarize_case_documents(
     req: SummarizeRequest,
     current_user: User = Depends(get_current_user),
-    _: bool = Depends(RoleChecker(RoleEnum.INVESTIGATOR))
+    _: bool = Depends(RoleChecker(RoleEnum.IO))
 ):
     try:
         summary = await AIService.summarize_case(req.documents)

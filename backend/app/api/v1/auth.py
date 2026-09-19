@@ -15,7 +15,7 @@ async def register(user_in: UserCreate, db: AsyncSession = Depends(get_db)):
     user = await AuthService.get_user_by_email(db, email=user_in.email)
     if user:
         raise HTTPException(status_code=400, detail="Email already registered")
-    await AuthService.create_user(db, email=user_in.email, password=user_in.password, full_name=user_in.full_name)
+    await AuthService.create_user(db, email=user_in.email, password=user_in.password, full_name=user_in.full_name, role=user_in.role, department=user_in.department, post=user_in.post)
     return {"message": "User created successfully. Please login to receive OTP."}
 
 @router.post("/login/step1", response_model=Any)

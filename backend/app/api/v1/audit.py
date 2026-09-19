@@ -17,6 +17,6 @@ async def get_document_audit_trail(
     document_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
-    _: bool = Depends(RoleChecker(RoleEnum.OFFICER))
+    _: bool = Depends(RoleChecker(RoleEnum.SUPERVISOR))
 ):
     return await AuditService.get_document_audit_trail(db, document_id)

@@ -5,10 +5,16 @@ from app.models.user import RoleEnum
 # Role Hierarchy Map
 ROLE_HIERARCHY = {
     RoleEnum.ADMIN: 100,
-    RoleEnum.OFFICER: 80,
-    RoleEnum.INVESTIGATOR: 60,
-    RoleEnum.LEGAL: 40,
-    RoleEnum.VIEWER: 20,
+    RoleEnum.AUDITOR: 90,
+    RoleEnum.SUPERVISOR: 80,
+    RoleEnum.JUDGE: 80,
+    RoleEnum.PROSECUTOR: 70,
+    RoleEnum.IO: 60,
+    RoleEnum.FORENSIC: 60,
+    RoleEnum.EVIDENCE_CUSTODIAN: 60,
+    RoleEnum.COURT_STAFF: 50,
+    RoleEnum.PRISON_OFFICER: 50,
+    RoleEnum.DEFENCE: 10,
 }
 
 def verify_role(user_role: RoleEnum, min_required_role: RoleEnum) -> bool:

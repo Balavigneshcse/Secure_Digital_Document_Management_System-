@@ -23,7 +23,7 @@ async def upload_document(
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
-    _: bool = Depends(RoleChecker(RoleEnum.OFFICER))
+    _: bool = Depends(RoleChecker(RoleEnum.SUPERVISOR))
 ):
     try:
         document = await DocumentService.upload_document(
@@ -52,7 +52,7 @@ async def get_document(
     document_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
-    _: bool = Depends(RoleChecker(RoleEnum.VIEWER))
+    _: bool = Depends(RoleChecker(RoleEnum.DEFENCE))
 ):
     document = await DocumentService.get_document(db, document_id)
     if not document:

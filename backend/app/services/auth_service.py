@@ -15,13 +15,20 @@ class AuthService:
         return result.scalar_one_or_none()
 
     @staticmethod
-    async def create_user(db: AsyncSession, email: str, password: str, full_name: str) -> User:
+    async def create_user(db: AsyncSession, email: str, password: str, full_name: str, role: str = None, department: str = None, post: str = None) -> User:
         hashed_password = get_password_hash(password)
         db_user = User(
             email=email,
             full_name=full_name,
             hashed_password=hashed_password
         )
+        if role:
+            db_user.role = role
+        if department:
+            db_user.department = department
+        if post:
+            db_user.post = post
+            
         db.add(db_user)
         await db.commit()
         await db.refresh(db_user)

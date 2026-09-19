@@ -19,7 +19,7 @@ async def create_case(
     case_in: CaseCreate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
-    _: bool = Depends(RoleChecker(RoleEnum.OFFICER))
+    _: bool = Depends(RoleChecker(RoleEnum.SUPERVISOR))
 ):
     stmt = select(Case).where(Case.case_number == case_in.case_number)
     result = await db.execute(stmt)
@@ -51,7 +51,7 @@ async def create_case(
 async def list_cases(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
-    _: bool = Depends(RoleChecker(RoleEnum.VIEWER))
+    _: bool = Depends(RoleChecker(RoleEnum.DEFENCE))
 ):
     stmt = select(Case).order_by(Case.created_at.desc())
     result = await db.execute(stmt)

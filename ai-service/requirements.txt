@@ -1,4 +1,4 @@
-﻿# SentinelDMS AI Service — Python dependencies
+# SentinelDMS AI Service — Python dependencies
 # Install: pip install -r requirements.txt
 
 # Server
@@ -16,5 +16,4 @@ langdetect==1.0.9
 transformers==4.44.0
 sentence-transformers==3.0.1
 faiss-cpu==1.8.0
-torch==2.4.0
 numpy==1.26.4

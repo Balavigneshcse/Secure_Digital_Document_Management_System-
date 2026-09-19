@@ -9,6 +9,8 @@ from app.models.user import User, RoleEnum
 from app.core.rbac import RoleChecker
 from sqlalchemy import select
 from pydantic import BaseModel
+from typing import Optional
+from app.models.user import DepartmentEnum
 
 router = APIRouter()
 
@@ -17,6 +19,8 @@ class UserResponse(BaseModel):
     email: str
     full_name: str
     role: RoleEnum
+    department: Optional[DepartmentEnum] = None
+    post: Optional[str] = None
     is_active: bool
 
     class Config:
@@ -35,13 +39,15 @@ async def list_users(
     result = await db.execute(stmt)
     return list(result.scalars().all())
 
-class RoleUpdate(BaseModel):
-    role: RoleEnum
+class UserUpdate(BaseModel):
+    role: Optional[RoleEnum] = None
+    department: Optional[DepartmentEnum] = None
+    post: Optional[str] = None
 
-@router.put("/{user_id}/role", response_model=UserResponse)
-async def update_user_role(
+@router.put("/{user_id}", response_model=UserResponse)
+async def update_user(
     user_id: uuid.UUID,
-    role_update: RoleUpdate,
+    user_update: UserUpdate,
     db: AsyncSession = Depends(get_db),
     _: bool = Depends(RoleChecker(RoleEnum.ADMIN))
 ):
@@ -51,7 +57,13 @@ async def update_user_role(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
         
-    user.role = role_update.role
+    if user_update.role is not None:
+        user.role = user_update.role
+    if user_update.department is not None:
+        user.department = user_update.department
+    if user_update.post is not None:
+        user.post = user_update.post
+        
     await db.commit()
     await db.refresh(user)
     return user

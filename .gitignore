@@ -1,11 +1,50 @@
-node_modules/
+# Python / Virtual Environments
 venv/
+.venv/
+ai-service/venv/
+backend/venv/
 __pycache__/
 *.pyc
 .env
+
+# Node.js
+node_modules/
+frontend/node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Databases and Storage
 local_storage/
-sentineldms.db
-.DS_Store
-ai-service/venv/
-backend/venv/
 backend/local_storage/
+sentineldms.db
+
+# Large datasets and images
+data/*.zip
+data/*.csv
+data/FIR_Dataset_ICDAR2023/
+data/faiss.index
+data/faiss_meta.json
+
+# IDEs, Editors, and OS files
+.idea/
+.vscode/
+!.vscode/extensions.json
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+/shelf/
+/workspace.xml
+/httpRequests/
+.DS_Store

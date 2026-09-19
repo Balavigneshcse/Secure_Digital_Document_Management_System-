@@ -19,7 +19,7 @@ class BlockchainVerifyResponse(BaseModel):
 async def verify_document_on_chain(
     doc_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
-    _: bool = Depends(RoleChecker(RoleEnum.VIEWER))
+    _: bool = Depends(RoleChecker(RoleEnum.DEFENCE))
 ):
     try:
         original_hash = await BlockchainService.verify_hash(doc_id)
