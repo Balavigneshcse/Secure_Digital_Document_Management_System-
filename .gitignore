@@ -1,0 +1,11 @@
+node_modules/
+venv/
+__pycache__/
+*.pyc
+.env
+local_storage/
+sentineldms.db
+.DS_Store
+ai-service/venv/
+backend/venv/
+backend/local_storage/

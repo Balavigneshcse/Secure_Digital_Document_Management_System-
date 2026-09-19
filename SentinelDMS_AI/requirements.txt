@@ -1,0 +1,9 @@
+﻿pymupdf>=1.23.0
+pytesseract>=0.3.10
+Pillow>=10.0.0
+langdetect>=1.0.9
+transformers>=4.40.0
+sentence-transformers>=2.7.0
+faiss-cpu>=1.7.4
+torch>=2.0.0
+numpy>=1.24.0
